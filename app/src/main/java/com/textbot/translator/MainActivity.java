@@ -1,23 +1,17 @@
 package com.textbot.translator;
-import android.app.*; import android.content.*; import android.media.projection.MediaProjectionManager;
-import android.net.Uri; import android.os.*; import android.provider.Settings; import android.webkit.*; import android.widget.Toast;
-public class MainActivity extends Activity {
- private static final int REQ_PROJECTION=4101, REQ_OVERLAY=4102; private WebView webView; private MediaProjectionManager pm; private boolean pending;
- private final ScreenCaptureService.FrameListener frame=data->{runOnUiThread(()->{if(webView!=null) webView.evaluateJavascript("window.androidScreenFrame&&window.androidScreenFrame("+org.json.JSONObject.quote(data)+");",null);});};
- @Override protected void onCreate(Bundle b){super.onCreate(b); pm=(MediaProjectionManager)getSystemService(MEDIA_PROJECTION_SERVICE);
-  webView=new WebView(this); WebSettings s=webView.getSettings(); s.setJavaScriptEnabled(true); s.setDomStorageEnabled(true); s.setAllowFileAccess(true); s.setAllowContentAccess(true);
-  webView.setWebViewClient(new WebViewClient()); webView.setWebChromeClient(new WebChromeClient()); webView.addJavascriptInterface(new Bridge(),"AndroidBridge"); webView.loadUrl("file:///android_asset/index.html"); setContentView(webView);}
- @Override protected void onResume(){super.onResume(); ScreenCaptureService.setFrameListener(frame);}
+import android.app.*;import android.content.*;import android.media.projection.MediaProjectionManager;import android.net.Uri;import android.os.*;import android.provider.Settings;import android.webkit.*;import android.widget.Toast;
+public class MainActivity extends Activity{
+ private static final int REQ_PROJECTION=4101,REQ_OVERLAY=4102;private WebView webView;private MediaProjectionManager pm;private boolean pending;
+ private final ScreenCaptureService.FrameListener frame=data->{runOnUiThread(()->{if(webView!=null)webView.evaluateJavascript("window.androidScreenFrame&&window.androidScreenFrame("+org.json.JSONObject.quote(data)+");",null);});};
+ @Override protected void onCreate(Bundle b){super.onCreate(b);pm=(MediaProjectionManager)getSystemService(MEDIA_PROJECTION_SERVICE);webView=new WebView(this);WebSettings s=webView.getSettings();s.setJavaScriptEnabled(true);s.setDomStorageEnabled(true);s.setAllowFileAccess(true);s.setAllowContentAccess(true);webView.setWebViewClient(new WebViewClient());webView.setWebChromeClient(new WebChromeClient());webView.addJavascriptInterface(new Bridge(),"AndroidBridge");webView.loadUrl("file:///android_asset/index.html");setContentView(webView);}
+ @Override protected void onResume(){super.onResume();ScreenCaptureService.setFrameListener(frame);}
  @Override protected void onPause(){ScreenCaptureService.setFrameListener(null);super.onPause();}
  private void projection(){startActivityForResult(pm.createScreenCaptureIntent(),REQ_PROJECTION);}
- @JavascriptInterface public void startScreenCapture(){runOnUiThread(()->{if(!Settings.canDrawOverlays(this)){pending=true;startActivityForResult(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, Uri.parse("package:"+getPackageName())),REQ_OVERLAY);Toast.makeText(this,"다른 앱 위에 표시 권한을 허용하세요.",Toast.LENGTH_LONG).show();}else projection();});}
+ @JavascriptInterface public void startScreenCapture(){runOnUiThread(()->{if(!Settings.canDrawOverlays(this)){pending=true;startActivityForResult(new Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION,Uri.parse("package:"+getPackageName())),REQ_OVERLAY);Toast.makeText(this,"다른 앱 위에 표시 권한을 허용하세요.",Toast.LENGTH_LONG).show();}else projection();});}
  @JavascriptInterface public void captureNow(){if(ScreenCaptureService.isRunning())ScreenCaptureService.requestFrame();else{pending=true;startScreenCapture();}}
- @Override protected void onActivityResult(int r,int c,Intent d){super.onActivityResult(r,c,d);
-  if(r==REQ_OVERLAY){if(Settings.canDrawOverlays(this))projection();return;}
-  if(r==REQ_PROJECTION&&c==RESULT_OK&&d!=null){Intent i=new Intent(this,ScreenCaptureService.class);i.putExtra("resultCode",c);i.putExtra("resultData",d);if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);
-   if(pending){pending=false;new Handler().postDelayed(ScreenCaptureService::requestFrame,1000);}
-   if(webView!=null)webView.evaluateJavascript("window.androidScreenCapturePermission&&window.androidScreenCapturePermission(true);",null);}
- }
+ @JavascriptInterface public void showTranslationResults(String json){ScreenCaptureService.showTranslations(json);}
+ @JavascriptInterface public void showTranslationError(String msg){ScreenCaptureService.showError(msg);}
+ @Override protected void onActivityResult(int r,int c,Intent d){super.onActivityResult(r,c,d);if(r==REQ_OVERLAY){if(Settings.canDrawOverlays(this))projection();return;}if(r==REQ_PROJECTION&&c==RESULT_OK&&d!=null){Intent i=new Intent(this,ScreenCaptureService.class);i.putExtra("resultCode",c);i.putExtra("resultData",d);if(Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);if(pending){pending=false;new Handler().postDelayed(ScreenCaptureService::requestFrame,500);}if(webView!=null)webView.evaluateJavascript("window.androidScreenCapturePermission&&window.androidScreenCapturePermission(true);",null);}}
  @Override public void onBackPressed(){if(webView!=null&&webView.canGoBack())webView.goBack();else super.onBackPressed();}
- public class Bridge{@JavascriptInterface public void startScreenCapture(){MainActivity.this.startScreenCapture();}@JavascriptInterface public void captureNow(){MainActivity.this.captureNow();}}
+ public class Bridge{@JavascriptInterface public void startScreenCapture(){MainActivity.this.startScreenCapture();}@JavascriptInterface public void captureNow(){MainActivity.this.captureNow();}@JavascriptInterface public void showTranslationResults(String j){MainActivity.this.showTranslationResults(j);}@JavascriptInterface public void showTranslationError(String m){MainActivity.this.showTranslationError(m);}}
 }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<title>TextBot 웹페이지 화면 번역</title>
+<title>SimplyTsL</title>
 <style>
 *{box-sizing:border-box}
 html,body{margin:0;width:100%;height:100%;height:100dvh;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#222}
@@ -516,6 +516,9 @@ ${translateSoundEffects ? '효과음, 의성어, 의태어도 번역 대상으�
     isTranslationVisible = true;
     layer.classList.remove('hide');
     $('toggleTranslateBtn').textContent = '번역 끄기';
+    if(nativeOverlayMode && window.AndroidBridge && AndroidBridge.showTranslationResults){
+      AndroidBridge.showTranslationResults(JSON.stringify(items));
+    }
   }finally{
     $('screenTranslateBtn').disabled=false;
   }
@@ -539,8 +542,10 @@ $('webUrl').addEventListener('keydown',e=>{if(e.key==='Enter')openWebPage();});
 
 let nativeScreenData='';
 let nativeTranslatePending=false;
+let nativeOverlayMode=false;
 
 window.androidScreenFrame=function(dataUrl){
+  nativeOverlayMode=true;
   nativeScreenData=dataUrl||'';
   if(!nativeScreenData)return;
   isImageMode=true;
@@ -555,11 +560,16 @@ window.androidScreenFrame=function(dataUrl){
   isTranslationVisible=true;
   $('toggleTranslateBtn').textContent='번역 끄기';
   img.onload=()=>{
-    if(nativeTranslatePending){
+    if(nativeTranslatePending || nativeOverlayMode){
       nativeTranslatePending=false;
-      translateFromScreen().catch(e=>alert(e.message));
+      translateFromScreen().catch(e=>{ if(window.AndroidBridge&&AndroidBridge.showTranslationError) AndroidBridge.showTranslationError(e.message); });
     }
   };
+};
+
+
+window.androidScreenTranslationError=function(message){
+  if(window.AndroidBridge && AndroidBridge.showTranslationError) AndroidBridge.showTranslationError(message||'번역 오류');
 };
 
 window.androidScreenCapturePermission=function(granted){
