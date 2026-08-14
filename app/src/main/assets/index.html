@@ -1,0 +1,595 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>TextBot 웹페이지 화면 번역</title>
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;width:100%;height:100%;height:100dvh;overflow:hidden;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","Noto Sans KR",sans-serif;background:#222}
+button,input,select{font:inherit}
+button{cursor:pointer;touch-action:manipulation}
+.app{width:100%;height:100dvh;background:#f6f7f9;display:flex;flex-direction:column}
+
+.header{height:58px;min-height:58px;background:#fff;border-bottom:1px solid #e9e9e9;display:flex;align-items:center;padding:0 8px 0 54px;gap:6px;position:relative;width:100%}
+.header input{flex:1;min-width:0;height:40px;border:1px solid #ddd;border-radius:10px;padding:0 10px;background:#fff;outline:0;font-size:13px}
+.header button.loadBtn{flex-shrink:0;height:40px;padding:0 12px;border:0;border-radius:10px;background:#222;color:#fff;font-size:13px;white-space:nowrap}
+
+.settingsBtn{position:absolute;left:8px;top:8px;z-index:1000;width:42px;height:42px;border:0;border-radius:12px;background:#fff;box-shadow:0 2px 8px #0002;font-size:20px}
+.settingsOverlay{position:fixed;inset:0;background:#0008;z-index:1090;display:none}
+.settingsOverlay.show{display:block}
+.settingsPanel{position:fixed;left:0;top:0;bottom:0;width:min(330px,88vw);background:#fff;z-index:1100;transform:translateX(-105%);transition:transform .22s ease;box-shadow:5px 0 20px #0003;display:flex;flex-direction:column}
+.settingsPanel.show{transform:translateX(0)}
+.settingsHead{height:58px;min-height:58px;padding:0 10px 0 18px;border-bottom:1px solid #eee;display:flex;align-items:center;justify-content:space-between}
+.settingsHead strong{font-size:17px}
+.settingsHead button{width:40px;height:40px;border:0;border-radius:11px;background:#f1f1f1;font-size:22px}
+.settingsBody{padding:16px;overflow:auto}
+.settingsBody .field{margin-bottom:15px}
+.settingsBody .field label{display:block;font-size:12px;color:#666;margin-bottom:5px}
+.settingsBody input,.settingsBody select{width:100%;height:44px;border:1px solid #ddd;border-radius:11px;padding:0 10px;background:#fff;outline:0}
+
+.webFrameWrap{position:relative;width:100%;flex:1;min-height:0;background:#fff;overflow:auto}
+.webFrame{width:100%;height:100%;border:0;background:#fff}
+
+.screenShareView{position:relative;width:100%;height:100%;background:#111;overflow:auto;display:flex;align-items:center;justify-content:center}
+.screenShareView video, .screenShareView img{display:block;width:100%;height:auto;max-height:100%}
+.screenShareView canvas{display:none}
+.imagePageIndicator{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:900;background:rgba(0,0,0,.55);color:#fff;padding:5px 10px;border-radius:999px;font-size:12px;display:none;pointer-events:none}
+.screenShareTranslationLayer{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+.screenShareTranslationLayer.hide{display:none}
+
+/* 번역 박스 스타일 */
+.screenShareTranslation{
+  position:absolute;
+  background:rgba(255,255,255,.95);
+  color:#111;
+  border-radius:4px;
+  padding:6px;
+  line-height:1.3;
+  box-shadow:0 1px 4px #0004;
+  font-weight:500;
+  font-size:12px;
+  white-space:normal;
+  word-break:keep-all;
+  overflow-wrap:anywhere;
+  hyphens:none;
+  height:auto !important;
+  min-height:20px;
+  pointer-events:auto;
+  box-sizing:border-box;
+  display:block;
+  overflow:visible;
+}
+
+/* 접힌 상태 스타일 */
+.screenShareTranslation.collapsed {
+  padding:0 !important;
+  width:0 !important;
+  min-width:0 !important;
+  height:0 !important;
+  min-height:0 !important;
+  background:transparent;
+  box-shadow:none;
+  border:0;
+}
+
+.screenShareTranslation .transText {
+  display:block;
+  min-width:0;
+  width:100%;
+}
+
+.screenShareTranslation.collapsed .transText {
+  display:none;
+}
+
+/* 우측 라인은 박스 안쪽에 맞추고 아래쪽으로만 나가는 접기 버튼 */
+.foldBtn {
+  position:absolute;
+  right:0;
+  bottom:-18px;
+  width:18px;
+  height:18px;
+  background:rgba(255,255,255,.95);
+  border:1px solid rgba(0,0,0,.15);
+  border-top:0;
+  border-bottom-left-radius:4px;
+  border-bottom-right-radius:4px;
+  font-size:9px;
+  line-height:18px;
+  color:#333;
+  text-align:center;
+  cursor:pointer;
+  padding:0;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  box-shadow:0 2px 4px rgba(0,0,0,.15);
+  z-index:2;
+}
+
+.screenShareTranslation.collapsed .foldBtn {
+  right:0;
+  bottom:0;
+  border-radius:4px;
+  border:1px solid rgba(0,0,0,.15);
+}
+
+.foldBtn:hover {
+  background:#fff;
+  color:#000;
+}
+
+.footer{background:#fff;padding:8px 10px calc(8px + env(safe-area-inset-bottom));border-top:1px solid #e8e8e8}
+.actions{display:flex;gap:6px;flex-wrap:wrap}
+.actions button, .actions label{flex:1;min-width:70px;border:0;border-radius:10px;padding:10px 4px;background:#222;color:#fff;font-size:12px;text-align:center;cursor:pointer}
+.actions button.secondary, .actions label.secondary{background:#eee;color:#222}
+.fileInput{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="header">
+    <button id="settingsBtn" class="settingsBtn" type="button" aria-label="설정">⚙️</button>
+    <input id="webUrl" type="url" placeholder="웹페이지 주소 입력 (예: example.com)" autocomplete="off">
+    <button id="webLoadBtn" class="loadBtn" type="button">이동</button>
+  </header>
+
+  <div id="settingsOverlay" class="settingsOverlay"></div>
+  <aside id="settingsPanel" class="settingsPanel" aria-label="설정">
+    <div class="settingsHead">
+      <strong>설정</strong>
+      <button id="settingsClose" type="button">×</button>
+    </div>
+
+    <div class="settingsBody">
+      <div class="field">
+        <label>API 키</label>
+        <input id="apiKey" type="password" autocomplete="off" placeholder="API 키를 입력하세요">
+      </div>
+
+      <div class="field">
+        <label>AI 모델</label>
+        <select id="model">
+          <option value="gemini-3.5-flash-lite">🤖 Gemini 3.5 Flash-Lite</option>
+          <option value="gemini-3.6-flash">🤖 Gemini 3.6 Flash</option>
+          <option value="gpt-5.6-sol">🤖 GPT-5.6 Sol</option>
+          <option value="gpt-5.6-terra">🤖 GPT-5.6 Terra</option>
+          <option value="gpt-5.6-luna">🤖 GPT-5.6 Luna</option>
+          <option value="grok-3-mini">🤖 Grok 3 Mini</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>대상언어</label>
+        <select id="sourceLanguage">
+          <option value="jpn">🇯🇵 일본어</option>
+          <option value="eng" selected>🇺🇸 영어</option>
+          <option value="spa">🇪🇸 스페인어</option>
+          <option value="chi_sim">🇨🇳 중국어</option>
+          <option value="fra">🇫🇷 프랑스어</option>
+          <option value="deu">🇩🇪 독일어</option>
+          <option value="ita">🇮🇹 이탈리아어</option>
+          <option value="por">🇵🇹 포르투갈어</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label>효과음 번역</label>
+        <button id="soundEffectToggle" type="button" style="width:100%;height:44px;border:1px solid #ddd;border-radius:11px;background:#fff;text-align:left;padding:0 10px;">효과음 번역 ☑️</button>
+      </div>
+
+      <div class="field">
+        <label>번역언어</label>
+        <select id="targetLanguage">
+          <option value="ko" selected>🇰🇷 한국어</option>
+          <option value="eng">🇺🇸 영어</option>
+          <option value="jpn">🇯🇵 일본어</option>
+          <option value="chi_sim">🇨🇳 중국어</option>
+          <option value="spa">🇪🇸 스페인어</option>
+          <option value="fra">🇫🇷 프랑스어</option>
+          <option value="deu">🇩🇪 독일어</option>
+        </select>
+      </div>
+    </div>
+  </aside>
+
+  <div class="webFrameWrap" id="webViewport">
+    <iframe id="webFrame" class="webFrame" title="웹페이지" src="about:blank"></iframe>
+    <div id="screenShareView" class="screenShareView" style="display:none">
+      <div id="imagePageIndicator" class="imagePageIndicator"></div>
+      <video id="screenVideo" autoplay playsinline muted style="display:none"></video>
+      <img id="screenImage" style="display:none" alt="캡처 이미지">
+      <canvas id="screenCanvas"></canvas>
+      <div id="screenShareTranslationLayer" class="screenShareTranslationLayer"></div>
+    </div>
+  </div>
+
+  <footer class="footer">
+    <div class="actions">
+      <label for="imageUploader" class="secondary">📷 캡처업로드</label>
+      <input id="imageUploader" type="file" accept="image/*" multiple class="fileInput">
+      <button id="screenShareBtn" type="button" class="secondary">화면 공유</button>
+      <button id="screenTranslateBtn" type="button">현재 화면 번역</button>
+      <button id="toggleTranslateBtn" type="button" class="secondary">번역 끄기</button>
+    </div>
+  </footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+let apiKey=localStorage.getItem('textbot_translate_api_key')||'';
+let model=localStorage.getItem('textbot_translate_model')||'gemini-3.5-flash-lite';
+let screenStream=null;
+let isImageMode=false;
+let imagePages=[];
+let currentImageIndex=0;
+let isTranslationVisible=true;
+  let translateSoundEffects=localStorage.getItem('textbot_translate_sound_effects')!=='false';
+let topZIndex=1;
+
+const $=id=>document.getElementById(id);
+
+function openSettings(){ $('settingsPanel').classList.add('show'); $('settingsOverlay').classList.add('show'); }
+function closeSettings(){ $('settingsPanel').classList.remove('show'); $('settingsOverlay').classList.remove('show'); }
+$('settingsBtn').addEventListener('click',openSettings);
+$('settingsClose').addEventListener('click',closeSettings);
+$('settingsOverlay').addEventListener('click',closeSettings);
+
+$('apiKey').value=apiKey;
+$('model').value=model;
+$('sourceLanguage').value=localStorage.getItem('textbot_translate_source')||'eng';
+$('targetLanguage').value=localStorage.getItem('textbot_translate_target')||'ko';
+function updateSoundEffectToggle(){ const b=$('soundEffectToggle'); if(!b)return; b.textContent=(translateSoundEffects?'효과음 번역 ✅️':'효과음 번역 ☑️'); }
+updateSoundEffectToggle();
+$('soundEffectToggle').addEventListener('click',()=>{ translateSoundEffects=!translateSoundEffects; localStorage.setItem('textbot_translate_sound_effects',String(translateSoundEffects)); updateSoundEffectToggle(); });
+
+$('sourceLanguage').addEventListener('change',()=>localStorage.setItem('textbot_translate_source',$('sourceLanguage').value));
+$('targetLanguage').addEventListener('change',()=>localStorage.setItem('textbot_translate_target',$('targetLanguage').value));
+
+$('apiKey').addEventListener('change',()=>{
+  apiKey=$('apiKey').value.trim();
+  localStorage.setItem('textbot_translate_api_key',apiKey);
+});
+$('model').addEventListener('change',()=>{
+  model=$('model').value;
+  localStorage.setItem('textbot_translate_model',model);
+});
+
+function normalizeUrl(v){
+  v=(v||'').trim();
+  if(!v)return '';
+  if(!/^https?:\/\//i.test(v))v='https://'+v;
+  try{return new URL(v).href}catch(e){return ''}
+}
+
+function openWebPage(){
+  const u=normalizeUrl($('webUrl').value);
+  if(!u){alert('올바른 웹페이지 주소를 입력해주세요.');return;}
+  isImageMode=false;
+  stopScreenShare();
+  $('screenShareView').style.display='none';
+  const f=$('webFrame');
+  f.style.display='block';
+  f.src=u;
+}
+
+$('imageUploader').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []).filter(f => f.type.startsWith('image/'));
+  if (!files.length) return;
+  stopScreenShare();
+  isImageMode = true;
+  imagePages = await Promise.all(files.map(file => new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = evt => resolve({name:file.name, src:evt.target.result});
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  })));
+  currentImageIndex = 0;
+  showImagePage();
+  e.target.value = '';
+});
+
+function showImagePage(){
+  if(!imagePages.length) return;
+  $('webFrame').style.display='none';
+  $('screenShareView').style.display='flex';
+  $('screenVideo').style.display='none';
+  const img=$('screenImage');
+  img.style.display='block';
+  img.src=imagePages[currentImageIndex].src;
+  $('screenShareTranslationLayer').innerHTML='';
+  $('screenShareTranslationLayer').classList.remove('hide');
+  isTranslationVisible=true;
+  $('toggleTranslateBtn').textContent='번역 끄기';
+  const multi=imagePages.length>1;
+  $('imagePageIndicator').style.display=multi?'block':'none';
+  $('imagePageIndicator').textContent=(currentImageIndex+1)+' / '+imagePages.length;
+}
+
+function changeImagePage(delta){
+  if(imagePages.length<2)return;
+  currentImageIndex=(currentImageIndex+delta+imagePages.length)%imagePages.length;
+  showImagePage();
+}
+
+let touchStartX=0, touchStartY=0;
+$('screenShareView').addEventListener('touchstart',e=>{
+  if(!isImageMode||imagePages.length<2)return;
+  const t=e.changedTouches[0];
+  touchStartX=t.clientX;
+  touchStartY=t.clientY;
+},{passive:true});
+$('screenShareView').addEventListener('touchend',e=>{
+  if(!isImageMode||imagePages.length<2)return;
+  if(e.target.closest('.screenShareTranslation'))return;
+  const t=e.changedTouches[0];
+  const dx=t.clientX-touchStartX;
+  const dy=t.clientY-touchStartY;
+  if(Math.abs(dx)>=45 && Math.abs(dx)>Math.abs(dy)*1.2) changeImagePage(dx<0?1:-1);
+},{passive:true});
+
+async function startScreenShare(){
+  if(!navigator.mediaDevices?.getDisplayMedia){
+    alert('모바일 환경에서는 화면 공유 API를 직접 지원하지 않습니다.\n대신 [📷 캡처업로드] 버튼을 이용해 화면 캡처본을 업로드해 주세요.');
+    return;
+  }
+  if(screenStream)stopScreenShare();
+  
+  try{
+    screenStream=await navigator.mediaDevices.getDisplayMedia({video:{frameRate:{ideal:5,max:10}},audio:false});
+    isImageMode=false;
+    $('webFrame').style.display='none';
+    $('screenShareView').style.display='flex';
+    $('screenImage').style.display='none';
+    
+    const v=$('screenVideo');
+    v.style.display='block';
+    v.srcObject=screenStream;
+    await v.play();
+    screenStream.getVideoTracks()[0].addEventListener('ended',()=>{
+      stopScreenShare();
+    });
+  }catch(e){
+    console.error(e);
+  }
+}
+
+function stopScreenShare(){
+  if(screenStream){
+    screenStream.getTracks().forEach(t=>t.stop());
+    screenStream=null;
+  }
+  const v=$('screenVideo');
+  if(v)v.srcObject=null;
+}
+
+async function callVisionForTranslation(prompt,img){
+  if(!apiKey)throw new Error('먼저 API 키를 입력해주세요.');
+  if(/^gpt|^grok/.test(model)){
+    const url=model.startsWith('grok')
+      ?'https://api.x.ai/v1/chat/completions'
+      :'https://api.openai.com/v1/chat/completions';
+    const r=await fetch(url,{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':'Bearer '+apiKey},
+      body:JSON.stringify({
+        model,
+        messages:[{role:'user',content:[
+          {type:'text',text:prompt},
+          {type:'image_url',image_url:{url:img}}
+        ]}],
+        temperature:0
+      })
+    });
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok)throw new Error(d.error?.message||'번역 API 오류');
+    return d.choices?.[0]?.message?.content||'';
+  }
+
+  const url='https://generativelanguage.googleapis.com/v1beta/models/'
+    +encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(apiKey);
+  const r=await fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({
+      contents:[{role:'user',parts:[
+        {text:prompt},
+        {inline_data:{mime_type:'image/jpeg',data:img.split(',')[1]}}
+      ]}]
+    })
+  });
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(d.error?.message||'번역 API 오류');
+  return d.candidates?.[0]?.content?.parts?.map(p=>p.text||'').join('')||'';
+}
+
+function extractJson(text){
+  text=(text||'').trim()
+    .replace(/^```(?:json)?/i,'')
+    .replace(/```$/i,'').trim();
+  const a=text.indexOf('['),b=text.lastIndexOf(']');
+  if(a<0||b<a)throw new Error('번역 결과 형식을 읽지 못했습니다.');
+  return JSON.parse(text.slice(a,b+1));
+}
+
+async function translateFromScreen(){
+  if(!apiKey)throw new Error('먼저 API 키를 입력해주세요.');
+  
+  let imgData = '';
+  const c = $('screenCanvas');
+  const ctx = c.getContext('2d');
+
+  if(isImageMode){
+    const img = $('screenImage');
+    if(!img.src) throw new Error('업로드된 이미지가 없습니다.');
+    c.width = img.naturalWidth || 1080;
+    c.height = img.naturalHeight || 1920;
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    imgData = c.toDataURL('image/jpeg', 0.82);
+  } else if(screenStream){
+    const v = $('screenVideo');
+    if(v.readyState < 2) throw new Error('화면을 준비하는 중입니다.');
+    c.width = v.videoWidth || 1080;
+    c.height = v.videoHeight || 1920;
+    ctx.drawImage(v, 0, 0, c.width, c.height);
+    imgData = c.toDataURL('image/jpeg', 0.82);
+  } else {
+    throw new Error('모바일에서는 [📷 캡처업로드]로 캡처본을 올리거나 PC에서 화면 공유를 시작해 주세요.');
+  }
+
+  const source=$('sourceLanguage').selectedOptions[0].textContent;
+  const target=$('targetLanguage').selectedOptions[0].textContent;
+
+  $('screenTranslateBtn').disabled=true;
+
+  try{
+    const prompt=`현재 화면 이미지에서 ${source}로 되어 있는 대사와 텍스트를 찾아 ${target}로 번역하세요.
+${translateSoundEffects ? '효과음, 의성어, 의태어도 번역 대상으로 포함하세요.' : '단, 효과음, 의성어, 의태어(예: 쿵, 쾅, 슉, 꺄아, 두근두근 등)는 번역 대상에서 완전히 제외하세요.'}
+화면에 실제로 보이는 일반 텍스트/대사만 대상으로 하고, 각 텍스트의 위치와 크기를 0~1000 좌표로 추정하세요.
+반드시 JSON 배열만 출력하세요.
+형식은 [{"text":"원문","translation":"번역문","x":0,"y":0,"w":100,"h":50}] 입니다.
+번역이 필요 없는 숫자나 기호는 생략하세요.`;
+
+    const result=await callVisionForTranslation(prompt,imgData);
+    const items=extractJson(result)
+      .filter(x=>x&&x.translation&&Number.isFinite(+x.x));
+
+    const layer=$('screenShareTranslationLayer');
+    layer.innerHTML='';
+    topZIndex = items.length + 1;
+
+    const targetEl = isImageMode ? $('screenImage') : $('screenVideo');
+    const sx=targetEl.clientWidth/1000;
+    const sy=targetEl.clientHeight/1000;
+    const layerW = layer.clientWidth;
+
+    items.forEach((x, index)=>{
+      const d=document.createElement('div');
+      d.className='screenShareTranslation';
+      
+      let posX = +x.x * sx + targetEl.offsetLeft;
+      let posY = +x.y * sy + targetEl.offsetTop;
+      let boxW = Math.max(50, +x.w * sx);
+
+      if (posX + boxW > layerW) {
+        posX = Math.max(0, layerW - boxW);
+      }
+
+      d.style.left = posX + 'px';
+      d.style.top = posY + 'px';
+      d.style.width = Math.max(50, boxW) + 'px';
+      d.style.maxWidth = Math.max(50, layerW - posX) + 'px';
+      d.style.zIndex = index + 1;
+
+      d.addEventListener('click', (e) => {
+        topZIndex++;
+        d.style.zIndex = topZIndex;
+      });
+
+      const textSpan=document.createElement('span');
+      textSpan.className='transText';
+      textSpan.textContent=x.translation;
+      d.appendChild(textSpan);
+
+      const btn=document.createElement('button');
+      btn.type='button';
+      btn.className='foldBtn';
+      btn.textContent='▼';
+      btn.addEventListener('click',(e)=>{
+        e.stopPropagation();
+        topZIndex++;
+        d.style.zIndex = topZIndex;
+        d.classList.toggle('collapsed');
+        btn.textContent=d.classList.contains('collapsed')?'▲':'▼';
+      });
+
+      d.appendChild(btn);
+      layer.appendChild(d);
+
+      const measuredHeight = d.scrollHeight;
+      d.style.height = measuredHeight + 'px';
+    });
+
+    isTranslationVisible = true;
+    layer.classList.remove('hide');
+    $('toggleTranslateBtn').textContent = '번역 끄기';
+  }finally{
+    $('screenTranslateBtn').disabled=false;
+  }
+}
+
+$('toggleTranslateBtn').addEventListener('click', () => {
+  const layer = $('screenShareTranslationLayer');
+  isTranslationVisible = !isTranslationVisible;
+
+  if (isTranslationVisible) {
+    layer.classList.remove('hide');
+    $('toggleTranslateBtn').textContent = '번역 끄기';
+  } else {
+    layer.classList.add('hide');
+    $('toggleTranslateBtn').textContent = '번역 켜기';
+  }
+});
+
+$('webLoadBtn').addEventListener('click',()=>openWebPage());
+$('webUrl').addEventListener('keydown',e=>{if(e.key==='Enter')openWebPage();});
+
+let nativeScreenData='';
+let nativeTranslatePending=false;
+
+window.androidScreenFrame=function(dataUrl){
+  nativeScreenData=dataUrl||'';
+  if(!nativeScreenData)return;
+  isImageMode=true;
+  stopScreenShare();
+  $('webFrame').style.display='none';
+  $('screenShareView').style.display='flex';
+  $('screenVideo').style.display='none';
+  const img=$('screenImage');
+  img.style.display='block';
+  img.src=nativeScreenData;
+  $('screenShareTranslationLayer').classList.remove('hide');
+  isTranslationVisible=true;
+  $('toggleTranslateBtn').textContent='번역 끄기';
+  img.onload=()=>{
+    if(nativeTranslatePending){
+      nativeTranslatePending=false;
+      translateFromScreen().catch(e=>alert(e.message));
+    }
+  };
+};
+
+window.androidScreenCapturePermission=function(granted){
+  if(!granted){
+    nativeTranslatePending=false;
+    alert('화면 캡처 권한이 필요합니다.');
+    return;
+  }
+  if(window.AndroidBridge && AndroidBridge.captureNow){
+    AndroidBridge.captureNow();
+  }
+};
+
+$('screenShareBtn').addEventListener('click',()=>{
+  if(window.AndroidBridge && AndroidBridge.startScreenCapture){
+    AndroidBridge.startScreenCapture();
+  }else{
+    startScreenShare();
+  }
+});
+
+$('screenTranslateBtn').addEventListener('click',()=>{
+  if(window.AndroidBridge && AndroidBridge.captureNow){
+    nativeTranslatePending=true;
+    AndroidBridge.captureNow();
+  }else{
+    translateFromScreen().catch(e=>alert(e.message));
+  }
+});
+})();
+</script>
+</body>
+</html>
