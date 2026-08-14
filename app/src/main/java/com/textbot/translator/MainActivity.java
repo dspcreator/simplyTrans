@@ -64,17 +64,16 @@ public class MainActivity extends Activity {
             return;
         }
 
-        Intent service = new Intent(this, ScreenCaptureService.class);
-        if (android.os.Build.VERSION.SDK_INT >= 26) {
-            startForegroundService(service);
-        } else {
-            startService(service);
-        }
-
         if (startTranslationAfterPermission) {
             startTranslationAfterPermission = false;
             requestProjection();
         } else {
+            Intent service = new Intent(this, ScreenCaptureService.class);
+            if (android.os.Build.VERSION.SDK_INT >= 26) {
+                startForegroundService(service);
+            } else {
+                startService(service);
+            }
             finish();
         }
     }

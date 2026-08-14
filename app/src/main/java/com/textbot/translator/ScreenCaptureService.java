@@ -49,11 +49,9 @@ public class ScreenCaptureService extends Service {
                 .setOngoing(true)
                 .build();
 
-        if (Build.VERSION.SDK_INT >= 29)
-            startForeground(1001, n,
-                    android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
-        else
-            startForeground(1001, n);
+        // The service initially only hosts the overlay. MediaProjection
+        // foreground mode is entered after Android grants the capture token.
+        startForeground(1001, n);
 
         thread = new HandlerThread("SimplyTsLCapture");
         thread.start();
@@ -73,6 +71,16 @@ public class ScreenCaptureService extends Service {
                 MediaProjectionManager pm =
                         (MediaProjectionManager)getSystemService(MEDIA_PROJECTION_SERVICE);
                 projection = pm.getMediaProjection(resultCode, data);
+                if (Build.VERSION.SDK_INT >= 29) {
+                    Notification n = new Notification.Builder(this, "capture")
+                            .setContentTitle("SimplyTsL")
+                            .setContentText("화면 번역 실행 중")
+                            .setSmallIcon(R.drawable.app_icon)
+                            .setOngoing(true)
+                            .build();
+                    startForeground(1001, n,
+                            android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION);
+                }
                 setupCapture();
                 translating = true;
                 requested.set(true);
