@@ -101,7 +101,7 @@ public class ScreenCaptureService extends Service {
 
         final WindowManager.LayoutParams lp=new WindowManager.LayoutParams(-1,-2,
             Build.VERSION.SDK_INT>=26?WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY:WindowManager.LayoutParams.TYPE_PHONE,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE|WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
+            WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
             PixelFormat.TRANSLUCENT);
         lp.gravity=Gravity.TOP|Gravity.CENTER_HORIZONTAL; lp.x=0; lp.y=110;
         final float[] down={0,0}; final int[] start={0,0};
@@ -131,7 +131,18 @@ public class ScreenCaptureService extends Service {
     }
     private void updateError(String message){ new Handler(Looper.getMainLooper()).post(()->{if(status!=null)status.setText(message); new Handler().postDelayed(ScreenCaptureService::requestFrame,1500);}); }
 
-    private void setup(){
+   
+ private void findTranslateButton(View root, boolean enabled){
+  if(root instanceof Button){
+   Button b=(Button)root;
+   if("화면 번역하기".contentEquals(b.getText())) b.setEnabled(enabled);
+  }
+  if(root instanceof ViewGroup){
+   ViewGroup g=(ViewGroup)root;
+   for(int i=0;i<g.getChildCount();i++) findTranslateButton(g.getChildAt(i),enabled);
+  }
+ }
+ private void setup(){
         WindowManager x=(WindowManager)getSystemService(WINDOW_SERVICE); DisplayMetrics dm=new DisplayMetrics(); x.getDefaultDisplay().getRealMetrics(dm);
         w=Math.min(dm.widthPixels,1600); h=Math.min(dm.heightPixels,1600); dpi=dm.densityDpi;
         reader=ImageReader.newInstance(w,h,PixelFormat.RGBA_8888,2);
