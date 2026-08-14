@@ -1,20 +1,16 @@
-name: Build TextBot APK
+name: Build SimplyTsL APK
 
 on:
   workflow_dispatch:
   push:
-    branches:
-      - main
-      - master
+    branches: [ main, master ]
 
 permissions:
   contents: read
 
 jobs:
   build:
-    name: Build Android APK
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -25,34 +21,29 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up Gradle 8.9
+      - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
 
       - name: Verify project
         run: |
-          pwd
-          echo "Project files:"
-          ls -la
-          echo "App files:"
-          ls -la app
           test -f settings.gradle
           test -f build.gradle
           test -f app/build.gradle
+          test -f app/src/main/AndroidManifest.xml
+          find app/src/main/java -type f -maxdepth 10 -print
+
+      - name: Clean
+        run: gradle --no-daemon clean --stacktrace
 
       - name: Build debug APK
-        run: gradle --no-daemon assembleDebug --stacktrace
+        run: gradle --no-daemon :app:assembleDebug --stacktrace --info
 
-      - name: Build release APK
-        run: gradle --no-daemon assembleRelease --stacktrace
-
-      - name: Upload APKs
+      - name: Upload debug APK
         uses: actions/upload-artifact@v4
         with:
-          name: TextBot-APKs
-          path: |
-            app/build/outputs/apk/debug/app-debug.apk
-            app/build/outputs/apk/release/app-release-unsigned.apk
+          name: SimplyTsL-debug
+          path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
